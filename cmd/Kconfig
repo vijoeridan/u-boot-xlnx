@@ -725,6 +725,11 @@ config CMD_DDR_TEST
 	  This is used for PS DDR custom memory tests such as data line integrity
 	  test, address line integrity test and pattern test.
 
+config CMD_EC_TEST
+	bool "ec_custom_post"
+	help
+	  This is Eridan Custom POST
+
 endmenu
 
 menu "Compression commands"
