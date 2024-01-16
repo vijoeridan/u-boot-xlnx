@@ -38,6 +38,10 @@
 #include "../common/board.h"
 
 #include "pm_cfg_obj.h"
+#include <search.h>
+#include <errno.h>
+#include <asm/gpio.h>
+#include <i2c.h>
 
 #define ZYNQMP_VERSION_SIZE	7
 #define EFUSE_VCU_DIS_MASK	0x100
@@ -48,6 +52,18 @@
 #define IDCODE2_PL_INIT_SHIFT	9
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#ifdef CONFIG_ZYNQMP_IWG30M_H
+
+/* Function Prototypes */
+int print_board_info(void);
+int board_soft_reset(void);
+
+#endif
+
+#if !defined(CONFIG_SPL_BUILD) && defined(CONFIG_WDT)
+static struct udevice *watchdog_dev;
+#endif
 
 #if CONFIG_IS_ENABLED(FPGA) && defined(CONFIG_FPGA_ZYNQMPPL)
 static xilinx_desc zynqmppl = XILINX_ZYNQMP_DESC;
@@ -379,6 +395,13 @@ int board_init(void)
 
 	if (current_el() == 3)
 		multi_boot();
+#ifdef CONFIG_ZYNQMP_IWG30M_H
+
+	/*IWG30M: Reset: USB and GEM0 Reset Customization*/
+	board_soft_reset();
+
+end:
+#endif
 
 	return 0;
 }
@@ -582,6 +605,9 @@ int board_late_init(void)
 #if defined(CONFIG_USB_ETHER) && !defined(CONFIG_USB_GADGET_DOWNLOAD)
 	usb_ether_init();
 #endif
+#ifdef CONFIG_ZYNQMP_IWG30M_H
+	print_board_info();
+#endif
 
 	if (!(gd->flags & GD_FLG_ENV_DEFAULT)) {
 		debug("Saved variables - Skipping\n");
@@ -602,18 +628,24 @@ int board_late_init(void)
 	case USB_MODE:
 		puts("USB_MODE\n");
 		mode = "usb_dfu0 usb_dfu1";
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "usb_dfu_spl");
+#endif
 		break;
 	case JTAG_MODE:
 		puts("JTAG_MODE\n");
 		mode = "jtag pxe dhcp";
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "jtagboot");
+#endif
 		break;
 	case QSPI_MODE_24BIT:
 	case QSPI_MODE_32BIT:
 		mode = "qspi0";
 		puts("QSPI_MODE\n");
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "qspiboot");
+#endif
 		break;
 	case EMMC_MODE:
 		puts("EMMC_MODE\n");
@@ -642,7 +674,9 @@ int board_late_init(void)
 
 		mode = "mmc";
 		bootseq = dev->seq;
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "sdboot");
+#endif
 		break;
 	case SD1_LSHFT_MODE:
 		puts("LVL_SHFT_");
@@ -660,12 +694,16 @@ int board_late_init(void)
 
 		mode = "mmc";
 		bootseq = dev->seq;
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "sdboot");
+#endif
 		break;
 	case NAND_MODE:
 		puts("NAND_MODE\n");
 		mode = "nand0";
+#ifndef CONFIG_ZYNQMP_IWG30M_H
 		env_set("modeboot", "nandboot");
+#endif
 		break;
 	default:
 		mode = "";
@@ -707,9 +745,36 @@ int board_late_init(void)
 }
 #endif
 
+void iwg30m_fdt_update()
+{
+	int node, ret;
+	const void *blob = gd->fdt_blob;
+	char *mode;
+
+	/* find the snps,dwc3 node */
+	node = fdt_node_offset_by_compatible(blob, -1, "snps,dwc3");
+
+	/* IWG30M: To increase the size of device tree */
+	ret = fdt_increase_size(blob, 10);
+	if (ret < 0) {
+		printf("Could not increase size of device tree: %s\n",
+				fdt_strerror(ret));
+		return ret;
+	}
+	ret = fdt_setprop_string(blob, node, "dr_mode", "host");
+	if (ret != 0)
+		printf ("\nFDT:\tUpdate dr_mode property to host Failed\n");
+}
+
 int checkboard(void)
 {
+#ifdef CONFIG_ZYNQMP_IWG30M_H
+	printf("Board: iW-RainboW-G30M based on Zynq Ultrascale+ MPSoC\n");
+	/* IWG30M: FDT updation call for dr_mode property in USB node */
+	iwg30m_fdt_update();
+#else
 	puts("Board: Xilinx ZynqMP\n");
+#endif
 	return 0;
 }
 
@@ -746,3 +811,38 @@ enum env_location env_get_location(enum env_operation op, int prio)
 		return ENVL_NOWHERE;
 	}
 }
+
+#ifdef CONFIG_ZYNQMP_IWG30M_H
+
+int print_board_info(void)
+{
+	printf("\nBoard Info:\n");
+	printf("\tBSP Version\t: iW-EMFBR-SC-01-R2.0-REL0.1-UZ2.F-Petalinux21.1\n");
+	printf("\tSOM Version\t: iW-PRFUZ-AP-01-R2.F\n");
+	printf("\tDCB Version\t: iW-EMFBR-AP-01-R2.0\n\n");
+	return 0;
+}
+
+int board_soft_reset(void)
+{
+	struct gpio_desc gem0_reset_gpio;
+	int nodeoffset;
+	const void *blob = gd->fdt_blob;
+	/*IWG30M: Reset: Same reset is used for both USB and GEM0*/
+	nodeoffset = fdt_path_offset(blob, "/axi/ethernet@ff0b0000");
+
+	gpio_request_by_name_nodev(offset_to_ofnode(nodeoffset), "phy-reset-gpio", 0,&gem0_reset_gpio, 0);
+
+	if (dm_gpio_is_valid(&gem0_reset_gpio)) {
+		dm_gpio_set_dir_flags(&gem0_reset_gpio,GPIOD_IS_OUT);
+		dm_gpio_set_value(&gem0_reset_gpio,0);
+		udelay(1000);
+		dm_gpio_set_value(&gem0_reset_gpio,1);
+		udelay(1000);
+		dm_gpio_set_value(&gem0_reset_gpio,0);
+	}
+
+	return 0;
+}
+
+#endif

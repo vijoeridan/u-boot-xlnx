@@ -19,6 +19,14 @@
 #define GICD_BASE	0xF9010000
 #define GICC_BASE	0xF9020000
 
+#ifndef SYS_MEMTEST_SCRATCH
+# define SYS_MEMTEST_SCRATCH	0x10800000
+#endif
+
+#ifndef NR_DRAM_BANKS
+# define NR_DRAM_BANKS		2
+#endif
+
 #define CONFIG_SYS_INIT_SP_ADDR		CONFIG_SYS_TEXT_BASE
 
 /* Generic Timer Definitions - setup in EL3. Setup by ATF for other cases */

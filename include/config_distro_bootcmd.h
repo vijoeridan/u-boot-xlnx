@@ -489,6 +489,51 @@
 	\
 	BOOT_TARGET_DEVICES(BOOTENV_DEV)                                  \
 	\
+        "bootenv=uEnv.txt\0" \
+        "storeenv=saveenv.txt\0" \
+        "store_filesize=1550\0" \
+        "loadbootenv=fatload mmc $sdbootdev ${scriptaddr} ${bootenv}\0" \
+        "storebootenv=fatwrite mmc $sdbootdev ${scriptaddr} ${storeenv} ${store_filesize}\0" \
+        "importbootenv=echo Importing environment from SD ...; " \
+                "env import -t ${scriptaddr}\0" \
+        "exportbootenv=echo Exporting environment ...; " \
+                "env export -t ${scriptaddr}\0" \
+        "sd_uEnvtxt_existence_test=test -e mmc $sdbootdev /uEnv.txt\0" \
+        "uenvboot=" \
+                "if run sd_uEnvtxt_existence_test; then " \
+                        "run loadbootenv; " \
+                        "echo Loaded environment from ${bootenv}; " \
+                        "run importbootenv; " \
+                "fi; " \
+         "run $modeboot\0" \
+	"sdboot=mmc dev $sdbootdev && mmcinfo; " \
+		"echo Copying Linux from mmc$sdbootdev to RAM... && " \
+		"fpga info 0 && " \
+		"fatload mmc $sdbootdev ${bitstream_load_address} ${bitstream_image} && " \
+		"fpga loadb 0 ${bitstream_load_address} ${bitstream_size} &&" \
+		"load mmc $sdbootdev ${fdt_addr_r} system.dtb && load mmc $sdbootdev ${kernel_addr_r} Image && " \
+		"booti ${kernel_addr_r} - ${fdt_addr_r}\0" \
+	"usbboot=usb start && usb info; " \
+		"echo Copying Linux from USB to RAM... && " \
+		"fpga info 0 && " \
+		"fatload usb 0 ${bitstream_load_address} ${bitstream_image} && " \
+		"fpga loadb 0 ${bitstream_load_address} ${bitstream_size} &&" \
+		"load usb 0 ${fdt_addr_r} system.dtb && load usb 0 ${$sdbootdev} ${kernel_addr_r} Image && "\
+		"booti ${kernel_addr_r} - ${fdt_addr_r}\0" \
+	"tftpboot=echo Booting Linux using TFTP... && " \
+		"fpga info 0 && " \
+		"tftpboot ${bitstream_load_address} ${serverip}:/${boot_path}/${bitstream_image}" \
+		"fpga loadb 0 ${bitstream_load_address} ${bitstream_size} &&" \
+		"tftpboot ${fdt_addr_r} ${serverip}:/${boot_path}/system.dtb && tftpboot ${kernel_addr_r} ${serverip}:/${boot_path}/Image &&" \
+		"run nfs_bootargs && booti ${kernel_addr_r} - ${fdt_addr_r}\0" \
+	"modeboot=sdboot\0" \
+	"sdbootdev=1\0" \
+	"bitstream_image=system_top.bit\0" \
+	"bitstream_load_address=0x10000000\0" \
+	"bitstream_size=0x1500000\0" \
+   "rootpath=/var/lib/tftpboot/${rootfs_path}\0" \
+   "nfs_bootargs=setenv bootargs earlycon clk_ignore_unused ip=dhcp root=/dev/nfs rootfstype=nfs nfsroot=${serverip}:${rootpath},v4,tcp rootwait rw rootfstype=ext4 cma=1024M console=ttyPS0,115200\0" \
+	"bootargs=earlycon clk_ignore_unused root=/dev/mmcblk1p2 rootfstype=ext4 rw rootwait cma=1024M console=ttyPS0,115200\0" \
 	"distro_bootcmd=" BOOTENV_SET_SCSI_NEED_INIT                      \
 		BOOTENV_SET_NVME_NEED_INIT                                \
 		BOOTENV_SET_IDE_NEED_INIT                                 \

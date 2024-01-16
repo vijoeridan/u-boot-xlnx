@@ -719,6 +719,12 @@ config CMD_STRINGS
 	  within the range are displayed. The minimum number of characters
 	  for a sequence to be considered a string can be provided.
 
+config CMD_DDR_TEST
+	bool "ddr_custom_test"
+	help
+	  This is used for PS DDR custom memory tests such as data line integrity
+	  test, address line integrity test and pattern test.
+
 endmenu
 
 menu "Compression commands"
