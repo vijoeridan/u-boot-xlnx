@@ -231,7 +231,7 @@ static char *zynqmp_detect_svd_name(u32 idcode)
 	return "unknown";
 }
 
-static char *zynqmp_get_silicon_idcode_name(void)
+char *zynqmp_get_silicon_idcode_name(void)
 {
 	u32 i;
 	u32 idcode, idcode2;
