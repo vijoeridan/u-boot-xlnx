@@ -493,7 +493,7 @@ void reset_cpu(ulong addr)
 {
 }
 
-static u8 __maybe_unused zynqmp_get_bootmode(void)
+u8 zynqmp_get_bootmode(void)
 {
 	u8 bootmode;
 	u32 reg = 0;

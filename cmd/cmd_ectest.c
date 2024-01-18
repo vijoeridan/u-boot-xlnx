@@ -10,6 +10,7 @@
 #include <watchdog.h>
 #include <asm/io.h>
 #include <linux/compiler.h>
+#include <asm/arch/hardware.h>
 #include <mapmem.h>
 #include <mmc.h>
 
@@ -18,7 +19,7 @@
 #define START_ADDR 0x10000000
 #define END_ADDR   0x7f000000
 
-int do_ec_mem_data_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_eridan_mem_data_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
     vu_long *addr,*dummy;
 	ulong dl_ps_err = 0;
@@ -69,7 +70,7 @@ int do_ec_mem_data_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const 
     return 0;
 }
 
-int do_ec_mem_address_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_eridan_mem_address_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
 	vu_long pattern ,anti_pattern;
 	vu_long *addr;
@@ -201,8 +202,50 @@ static void print_eridan_mmc_info(void)
 	}
 }
 
+u8 zynqmp_get_bootmode(void); /* Borrowed from zynqmp.c */
+
+static void print_uboot_check(void)
+{
+	u8 bootmode;
+	bootmode = zynqmp_get_bootmode();
+
+	puts("Bootmode: ");
+	switch (bootmode) {
+		case USB_MODE:
+			puts("USB Boot\n");
+			break;
+		case JTAG_MODE:
+			puts("JTAG Boot\n");
+			break;
+		case QSPI_MODE_24BIT:
+		case QSPI_MODE_32BIT:
+			puts("QSPI Boot\n");
+			break;
+		case EMMC_MODE:
+			puts("EMMC Boot\n");
+			break;
+		case SD_MODE:
+			puts("SD Boot\n");
+			break;
+		case SD1_LSHFT_MODE:
+			puts("LVL_SHFT ");
+			/* fall through */
+		case SD_MODE1:
+			puts("SD_MODE1\n");
+			break;
+		case NAND_MODE:
+			puts("NAND Boot\n");
+			break;
+		default:
+			puts("Unknown Boot\n");
+	}
+
+	return;
+}
+
 void print_eridan_board_info(void)
 {
+	print_uboot_check();
 #ifdef CONFIG_ZYNQMP_IWG30M_H
 	printf("IWG Board config found\n");
 	print_zynqmp_cpu();
@@ -225,8 +268,8 @@ int do_ec_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 	print_eridan_board_info();
     op[0] = argv[1][0];
     if (op[0] == 'm') {
-        do_ec_mem_data_test(cmdtp, flag, argc, argv);
-        do_ec_mem_address_test(cmdtp, flag, argc, argv);
+        do_eridan_mem_data_test(cmdtp, flag, argc, argv);
+        do_eridan_mem_address_test(cmdtp, flag, argc, argv);
     } else if (op[0] == 's') {
         printf("SD Card test\n");
     } else if (op[0] == 'e') {
