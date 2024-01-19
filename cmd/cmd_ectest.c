@@ -13,6 +13,8 @@
 #include <asm/arch/hardware.h>
 #include <mapmem.h>
 #include <mmc.h>
+#include <miiphy.h>
+#include <xilinx.h>
 
 #define HPS 0
 #define DBG 0
@@ -164,8 +166,18 @@ static void print_zynqmp_cpu(void)
 #if CONFIG_IS_ENABLED(FPGA) && defined(CONFIG_FPGA_ZYNQMPPL)
 	zname = zynqmp_get_silicon_idcode_name();
 	printf("\tChip ID:\t%s\n", zname);
+	fpga_init();
+	//fpga_add(fpga_xilinx, &zynqmppl);
 #else
 	printf("Please enable CONFIG_IS_ENABLED(FPGA) & CONFIG_FPGA_ZYNQMPPL\n");
+#endif
+#if defined(CONFIG_ZYNQMP_FIRMWARE)
+	struct udevice *dev;
+
+	uclass_get_device_by_name(UCLASS_FIRMWARE, "zynqmp-power", &dev);
+	if (!dev)
+		panic("PMU Firmware device not found - Enable it");
+	printf("\tPMU firmware device - Found\n");
 #endif
 	return;
 }
@@ -200,6 +212,8 @@ static void print_eridan_mmc_info(void)
 			printf("Please enable MMC_Verbose in config\n");
 #endif
 	}
+
+	return;
 }
 
 u8 zynqmp_get_bootmode(void); /* Borrowed from zynqmp.c */
@@ -243,6 +257,36 @@ static void print_uboot_check(void)
 	return;
 }
 
+static void print_1g_info(void)
+{
+	const char *devname;
+
+	/* use current device */
+	devname = miiphy_get_current_dev();
+
+	for (int j = 0; j <= 31; j++) {
+		unsigned int oui;
+		unsigned char model;
+		unsigned char rev;
+
+		if (miiphy_info (devname, j, &oui, &model, &rev) == 0) {
+			printf("PHY 0x%02X: "
+				"OUI = 0x%04X, "
+				"Model = 0x%02X, "
+				"Rev = 0x%02X, "
+				"%3dbase%s, %s\n",
+				j, oui, model, rev,
+				miiphy_speed (devname, j),
+				miiphy_is_1000base_x (devname, j)
+					? "X" : "T",
+				(miiphy_duplex (devname, j) == FULL)
+					? "FDX" : "HDX");
+		}
+	}
+
+	return;
+}
+
 void print_eridan_board_info(void)
 {
 	print_uboot_check();
@@ -253,6 +297,9 @@ void print_eridan_board_info(void)
 	printf("IWG board config NOT Found\n");
 #endif
 	print_eridan_mmc_info();
+	print_1g_info();
+
+	return;
 }
 
 int do_ec_test(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
